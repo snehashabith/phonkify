@@ -90,7 +90,8 @@ def mix_track_with_drums(effected_vocal_path: str, base_dir: str, output_path: s
 
     # Let the instrumental lead while keeping a clear, lower-level vocal stem.
     mix = vocal - 3.0
-    section_ms = rng.choice((1800, 2000, 2400, 2800))
+    beat_ms = 60000.0 / target_bpm if target_bpm and target_bpm > 0 else 428.57
+    section_ms = max(1, int(round(beat_ms * 4)))
     for index, start in enumerate(range(0, length, section_ms)):
         duration = min(section_ms, length - start)
         active = _activity_db(vocal, start, duration) > -33.0
@@ -98,12 +99,12 @@ def mix_track_with_drums(effected_vocal_path: str, base_dir: str, output_path: s
         if drum and not intro:
             # The beat stays forward even during lines; the vocal is no longer
             # normalized above the arrangement.
-            gain = rng.uniform(-11, -8) if active else rng.uniform(-8, -5)
-            mix = mix.overlay(_loop_slice(drum, rng.randrange(len(drum)), duration) + gain, position=start)
+            gain = rng.uniform(-6, -3) if active else rng.uniform(-3, 0)
+            mix = mix.overlay(_loop_slice(drum, start, duration) + gain, position=start)
         if melody and not intro and (not active or rng.random() < 0.32):
-            mix = mix.overlay(_loop_slice(melody, rng.randrange(len(melody)), duration) + rng.uniform(-17, -12), position=start)
+            mix = mix.overlay(_loop_slice(melody, start, duration) + rng.uniform(-14, -9), position=start)
         if cowbell and not intro and index % rng.choice((2, 3)) == 0:
-            mix = mix.overlay(_loop_slice(cowbell, rng.randrange(len(cowbell)), duration) + rng.uniform(-15, -10), position=start)
+            mix = mix.overlay(_loop_slice(cowbell, start, duration) + rng.uniform(-12, -7), position=start)
 
     mix = effects.compress_dynamic_range(mix, threshold=-15, ratio=2.0, attack=8, release=90)
     effects.normalize(mix, headroom=0.8).export(output_path, format="mp3", bitrate="192k")

@@ -22,6 +22,9 @@ def apply_phonk_fx(input_vocal_path: str, output_vocal_path: str) -> str:
     audio, sample_rate = sf.read(input_vocal_path, always_2d=True)
     effected = get_adaptive_pedalboard(input_vocal_path)(audio.T, sample_rate).T
     result = (effected * 0.84) + (audio * 0.16)
+    # Lift the treated signal slightly so the dark filter/saturation is audible
+    # above the newly stronger drum layer.
+    result *= 1.12
     peak = float(np.max(np.abs(result)))
     if peak > 0.98:
         result *= 0.98 / peak

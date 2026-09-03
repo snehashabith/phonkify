@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+temp/
+precomputed/
+.venv/
+venv/
