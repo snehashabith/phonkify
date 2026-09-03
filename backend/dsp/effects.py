@@ -1,5 +1,31 @@
 import soundfile as sf
 from pedalboard import Pedalboard, LowpassFilter, HighpassFilter, Bitcrush, Distortion, Reverb
+import librosa
+from pedalboard import Pedalboard, HighpassFilter, LowpassFilter, Bitcrush, Distortion
+
+def get_adaptive_pedalboard(vocal_path: str):
+    y, sr = librosa.load(vocal_path, sr=None)
+    
+    # Measure spectral centroid (brightness) and energy (RMS)
+    brightness = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
+    rms_energy = np.mean(librosa.feature.rms(y=y))
+    
+    # Darker/muffled vocals get higher high-pass cutoffs and drive
+    if brightness < 1500:
+        hp_cutoff = 500.0
+        drive = 16.0
+        bit_depth = 6.0  # Heavy crunch for dull inputs
+    else:
+        hp_cutoff = 350.0
+        drive = 9.0
+        bit_depth = 10.0 # Clean crunch for bright inputs
+        
+    return Pedalboard([
+        HighpassFilter(cutoff_frequency_hz=hp_cutoff),
+        LowpassFilter(cutoff_frequency_hz=3200.0),
+        Bitcrush(bit_depth=bit_depth),
+        Distortion(drive_db=drive)
+    ])
 
 def apply_phonk_fx(input_vocal_path: str, output_vocal_path: str) -> str:
     """
@@ -12,14 +38,7 @@ def apply_phonk_fx(input_vocal_path: str, output_vocal_path: str) -> str:
         audio = audio.T
 
     # Pedalboard Phonk FX Chain
-    board = Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=400.0),   # Cut muddy lows
-        LowpassFilter(cutoff_frequency_hz=3200.0),   # Phone-mic telephone effect
-        Bitcrush(bit_depth=8.0),                     # Vintage digital crunch
-        Distortion(drive_db=14.0),                   # Aggressive drive
-        Reverb(room_size=0.65, wet_level=0.35)       # Spacial depth
-    ])
-
+    board = get_adaptive_pedalboard(input_vocal_path)
     effected_audio = board(audio, sample_rate)
 
     # Transpose back if necessary
