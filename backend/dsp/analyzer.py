@@ -2,7 +2,21 @@ import librosa
 import soundfile as sf
 import numpy as np
 
-def pitch_and_stretch(vocal_path: str, output_path: str, target_bpm: float = 140.0, semitone_shift: int = -2) -> str:
+def calculate_adaptive_phonk_bpm(input_bpm: float) -> float:
+    """
+    Dynamically select Phonk tempo based on original input speed.
+    """
+    if input_bpm < 90:
+        # Slow ballad/speech -> Slow-drift Phonk (120-128 BPM)
+        return float(np.clip(input_bpm * 1.4, 120, 128))
+    elif input_bpm > 130:
+        # Fast input -> Fast Aggressive Phonk (150-160 BPM)
+        return float(np.clip(input_bpm * 1.05, 145, 160))
+    else:
+        # Standard range -> Standard Drift Phonk (138-145 BPM)
+        return 140.0
+
+def pitch_and_stretch(vocal_path: str, output_path: str, target_bpm: calculate_adaptive_phonk_bpm(tempo), semitone_shift: int = -2) -> str:
     """
     Detects track BPM, time-stretches to target_bpm (Drift Phonk style), and pitch-shifts down.
     """
