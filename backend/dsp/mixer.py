@@ -1,67 +1,65 @@
+"""Input-reactive arrangement instead of a fixed loop stack."""
+
+import hashlib
 import os
-from pydub import AudioSegment
-import numpy as np
-import librosa
+import random
+from pydub import AudioSegment, effects
+
+
+def _seed_for_file(path: str) -> int:
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    return int.from_bytes(digest.digest()[:8], "big")
+
 
 def select_drum_assets(vocal_path: str, base_dir: str):
-    """
-    Analyzes vocal RMS energy and tempo to choose between Trap and Dubstep drum loops.
-    """
-    y, sr = librosa.load(vocal_path, sr=None)
-    
-    # Measure Energy and BPM
-    rms_energy = float(np.mean(librosa.feature.rms(y=y)))
-    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-    if isinstance(tempo, np.ndarray):
-        tempo = tempo[0]
+    assets = os.path.join(base_dir, "assets")
+    vocal = AudioSegment.from_file(vocal_path)
+    drum = "dubstep_drum_loop.wav" if vocal.rms > 1500 else "trap_drum_loop.wav"
+    return (os.path.join(assets, drum), os.path.join(assets, "gm_loop.wav"),
+            os.path.join(assets, "cowbells.wav"))
 
-    assets_dir = os.path.join(base_dir, "assets")
 
-    # High energy OR slow input speech -> Heavy Dubstep Loop
-    if rms_energy > 0.18 or tempo < 110:
-        selected_drums = os.path.join(assets_dir, "dubstep_drum_loop.wav")
-    else:
-        selected_drums = os.path.join(assets_dir, "trap_drum_loop.wav")
+def _loop_slice(loop: AudioSegment, start_ms: int, duration_ms: int) -> AudioSegment:
+    if not len(loop):
+        return AudioSegment.silent(duration=duration_ms)
+    start_ms %= len(loop)
+    return (loop * ((start_ms + duration_ms) // len(loop) + 2))[start_ms:start_ms + duration_ms]
 
-    gm_loop_path = os.path.join(assets_dir, "gm_loop.wav")
-    cowbell_path = os.path.join(assets_dir, "cowbells.wav")
 
-    return selected_drums, gm_loop_path, cowbell_path
+def _activity_db(vocal: AudioSegment, start: int, duration: int) -> float:
+    chunk = vocal[start:start + duration]
+    return chunk.dBFS if chunk.rms else -90.0
+
 
 def mix_track_with_drums(effected_vocal_path: str, base_dir: str, output_path: str) -> str:
-    # 1. Dynamically select audio assets
     drum_path, gm_path, cowbell_path = select_drum_assets(effected_vocal_path, base_dir)
-
     vocal = AudioSegment.from_file(effected_vocal_path)
-    track_length = len(vocal)
+    if not len(vocal):
+        raise ValueError("No vocal audio was available for mixing")
+    rng = random.Random(_seed_for_file(effected_vocal_path))
+    length = len(vocal)
+    drum = AudioSegment.from_file(drum_path) if os.path.exists(drum_path) else None
+    melody = AudioSegment.from_file(gm_path) if os.path.exists(gm_path) else None
+    cowbell = AudioSegment.from_file(cowbell_path) if os.path.exists(cowbell_path) else None
 
-    # Helper function to loop an asset to match vocal duration
-    def prepare_loop(path: str, gain_db: float = 0.0):
-        if not os.path.exists(path):
-            return None
-        loop = AudioSegment.from_file(path) + gain_db
-        if len(loop) < track_length:
-            loops_needed = (track_length // len(loop)) + 1
-            loop = loop * loops_needed
-        return loop[:track_length]
+    # Voice is the anchor. Backing changes by input hash, phrase energy and section.
+    mix = vocal + 5.5
+    section_ms = rng.choice((1800, 2000, 2400, 2800))
+    for index, start in enumerate(range(0, length, section_ms)):
+        duration = min(section_ms, length - start)
+        active = _activity_db(vocal, start, duration) > -33.0
+        intro = index == 0 and length > section_ms * 1.4
+        if drum and not intro:
+            gain = rng.uniform(-15, -10) if active else rng.uniform(-10, -6.5)
+            mix = mix.overlay(_loop_slice(drum, rng.randrange(len(drum)), duration) + gain, position=start)
+        if melody and not intro and (not active or rng.random() < 0.32):
+            mix = mix.overlay(_loop_slice(melody, rng.randrange(len(melody)), duration) + rng.uniform(-22, -16), position=start)
+        if cowbell and not intro and index % rng.choice((2, 3)) == 0:
+            mix = mix.overlay(_loop_slice(cowbell, rng.randrange(len(cowbell)), duration) + rng.uniform(-20, -14), position=start)
 
-    # 2. Load and loop selected assets with appropriate mixing gains
-    drums = prepare_loop(drum_path, gain_db=0.0)      # Primary beat
-    gm_loop = prepare_loop(gm_path, gain_db=-6.0)     # Background melody (-6dB lower)
-    cowbell = prepare_loop(cowbell_path, gain_db=-2.0)  # Accent cowbell (-2dB)
-
-    # 3. Layer everything together into the final mix
-    final_mix = vocal + 1.5  # Vocal level
-
-    if drums:
-        final_mix = final_mix.overlay(drums)
-    if gm_loop:
-        final_mix = final_mix.overlay(gm_loop)
-    if cowbell:
-        final_mix = final_mix.overlay(cowbell)
-
-    # 4. Normalize to -1.0 dBFS headroom to prevent clipping
-    normalized_mix = final_mix.normalize(headroom=1.0)
-    normalized_mix.export(output_path, format="mp3", bitrate="192k")
-
+    mix = effects.compress_dynamic_range(mix, threshold=-15, ratio=2.0, attack=8, release=90)
+    effects.normalize(mix, headroom=0.8).export(output_path, format="mp3", bitrate="192k")
     return output_path

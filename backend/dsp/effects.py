@@ -1,49 +1,26 @@
-import soundfile as sf
-from pedalboard import Pedalboard, LowpassFilter, HighpassFilter, Bitcrush, Distortion, Reverb
-import librosa
-from pedalboard import Pedalboard, HighpassFilter, LowpassFilter, Bitcrush, Distortion
+"""Vocal-forward, intentionally restrained phonk coloration."""
 
-def get_adaptive_pedalboard(vocal_path: str):
-    y, sr = librosa.load(vocal_path, sr=None)
-    
-    # Measure spectral centroid (brightness) and energy (RMS)
-    brightness = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
-    rms_energy = np.mean(librosa.feature.rms(y=y))
-    
-    # Darker/muffled vocals get higher high-pass cutoffs and drive
-    if brightness < 1500:
-        hp_cutoff = 500.0
-        drive = 16.0
-        bit_depth = 6.0  # Heavy crunch for dull inputs
-    else:
-        hp_cutoff = 350.0
-        drive = 9.0
-        bit_depth = 10.0 # Clean crunch for bright inputs
-        
-    return Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=hp_cutoff),
-        LowpassFilter(cutoff_frequency_hz=3200.0),
-        Bitcrush(bit_depth=bit_depth),
-        Distortion(drive_db=drive)
-    ])
+import librosa
+import numpy as np
+import soundfile as sf
+from pedalboard import Pedalboard, HighpassFilter, LowpassFilter, Distortion, Reverb
+
+
+def get_adaptive_pedalboard(vocal_path: str) -> Pedalboard:
+    y, sr = librosa.load(vocal_path, sr=None, mono=True)
+    brightness = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+    highpass = 95.0 if brightness < 1600 else 135.0
+    lowpass = 6500.0 if brightness > 2400 else 5200.0
+    drive = 2.5 if brightness > 1800 else 4.0
+    return Pedalboard([HighpassFilter(cutoff_frequency_hz=highpass), LowpassFilter(cutoff_frequency_hz=lowpass), Distortion(drive_db=drive), Reverb(room_size=0.18, wet_level=0.07, dry_level=0.98)])
+
 
 def apply_phonk_fx(input_vocal_path: str, output_vocal_path: str) -> str:
-    """
-    Applies the classic Phonk lo-fi vocal treatment: Bandpass + Bitcrush + Saturation + Reverb.
-    """
-    audio, sample_rate = sf.read(input_vocal_path)
-
-    # Transpose array to match Pedalboard format (channels, samples) if stereo
-    if len(audio.shape) > 1:
-        audio = audio.T
-
-    # Pedalboard Phonk FX Chain
-    board = get_adaptive_pedalboard(input_vocal_path)
-    effected_audio = board(audio, sample_rate)
-
-    # Transpose back if necessary
-    if len(effected_audio.shape) > 1:
-        effected_audio = effected_audio.T
-
-    sf.write(output_vocal_path, effected_audio, sample_rate)
+    audio, sample_rate = sf.read(input_vocal_path, always_2d=True)
+    effected = get_adaptive_pedalboard(input_vocal_path)(audio.T, sample_rate).T
+    result = (effected * 0.84) + (audio * 0.16)
+    peak = float(np.max(np.abs(result)))
+    if peak > 0.98:
+        result *= 0.98 / peak
+    sf.write(output_vocal_path, result, sample_rate)
     return output_vocal_path

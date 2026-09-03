@@ -40,7 +40,9 @@ async def generate_phonk(file: UploadFile = File(...)):
     Full pipeline: Upload -> Stem Separation -> Tempo/Pitch -> Phonk FX -> Drum Overlay -> MP3
     """
     job_id = str(uuid.uuid4())[:8]
-    input_file_path = os.path.join(TEMP_DIR, f"input_{job_id}_{file.filename}")
+    # Do not let a client supplied filename influence the output directory.
+    safe_name = os.path.basename(file.filename or "upload.wav")
+    input_file_path = os.path.join(TEMP_DIR, f"input_{job_id}_{safe_name}")
     vocal_raw_path = os.path.join(TEMP_DIR, f"vocals_raw_{job_id}.wav")
     vocal_pitched_path = os.path.join(TEMP_DIR, f"vocals_pitched_{job_id}.wav")
     vocal_fx_path = os.path.join(TEMP_DIR, f"vocals_fx_{job_id}.wav")
@@ -54,14 +56,15 @@ async def generate_phonk(file: UploadFile = File(...)):
         # Step 1: Stem Separation
         isolate_vocals(input_file_path, vocal_raw_path)
 
-        # Step 2: BPM Alignment and Pitch Shift
-        pitch_and_stretch(vocal_raw_path, vocal_pitched_path, target_bpm=140.0, semitone_shift=-2)
+        # Preserve natural speech/acapella cadence; the analyzer only gently
+        # adapts vocals when a reliable musical pulse is present.
+        pitch_and_stretch(vocal_raw_path, vocal_pitched_path)
 
         # Step 3: Apply Pedalboard Phonk FX Chain
         apply_phonk_fx(vocal_pitched_path, vocal_fx_path)
 
         # Step 4: Procedural Drum Layering & Mixdown
-        mix_track_with_drums(vocal_fx_path, DRUM_LOOP_PATH, final_output_path)
+        mix_track_with_drums(vocal_fx_path, BASE_DIR, final_output_path)
 
         return FileResponse(
             path=final_output_path, 
