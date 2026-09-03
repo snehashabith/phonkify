@@ -4,6 +4,7 @@ import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from pydub import AudioSegment
 
 from dsp.separator import isolate_vocals
 from dsp.analyzer import pitch_and_stretch
@@ -37,7 +38,7 @@ def health_check():
 @app.post("/generate-phonk")
 async def generate_phonk(file: UploadFile = File(...)):
     """
-    Full pipeline: Upload -> Stem Separation -> Tempo/Pitch -> Phonk FX -> Drum Overlay -> MP3
+    Full pipeline: Upload -> Vocal isolation -> Tempo/Pitch -> Phonk FX -> Adaptive backing -> MP3
     """
     job_id = str(uuid.uuid4())[:8]
     # Do not let a client supplied filename influence the output directory.
@@ -52,19 +53,24 @@ async def generate_phonk(file: UploadFile = File(...)):
         # Save uploaded file
         with open(input_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        original_duration_ms = len(AudioSegment.from_file(input_file_path))
 
-        # Step 1: Stem Separation
+        # Step 1: isolate the vocal stem so the generated rhythm has room to lead.
         isolate_vocals(input_file_path, vocal_raw_path)
 
-        # Preserve natural speech/acapella cadence; the analyzer only gently
-        # adapts vocals when a reliable musical pulse is present.
-        pitch_and_stretch(vocal_raw_path, vocal_pitched_path)
+        # Apply the dark drift preset, then use its rendered tempo for the loops.
+        profile = pitch_and_stretch(vocal_raw_path, vocal_pitched_path, style="dark_drift")
 
         # Step 3: Apply Pedalboard Phonk FX Chain
         apply_phonk_fx(vocal_pitched_path, vocal_fx_path)
 
         # Step 4: Procedural Drum Layering & Mixdown
-        mix_track_with_drums(vocal_fx_path, BASE_DIR, final_output_path)
+        mix_track_with_drums(
+            vocal_fx_path, BASE_DIR, final_output_path,
+            target_bpm=profile.target_bpm,
+            backing_semitones=profile.backing_semitones,
+            max_duration_ms=original_duration_ms,
+        )
 
         return FileResponse(
             path=final_output_path, 

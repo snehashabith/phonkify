@@ -9,10 +9,12 @@ from pedalboard import Pedalboard, HighpassFilter, LowpassFilter, Distortion, Re
 def get_adaptive_pedalboard(vocal_path: str) -> Pedalboard:
     y, sr = librosa.load(vocal_path, sr=None, mono=True)
     brightness = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
-    highpass = 95.0 if brightness < 1600 else 135.0
-    lowpass = 6500.0 if brightness > 2400 else 5200.0
-    drive = 2.5 if brightness > 1800 else 4.0
-    return Pedalboard([HighpassFilter(cutoff_frequency_hz=highpass), LowpassFilter(cutoff_frequency_hz=lowpass), Distortion(drive_db=drive), Reverb(room_size=0.18, wet_level=0.07, dry_level=0.98)])
+    # Darker than the standard vocal treatment, but still leaves enough 1-4 kHz
+    # information for words to remain understandable after the pitch drop.
+    highpass = 70.0 if brightness < 1600 else 95.0
+    lowpass = 4400.0 if brightness > 2400 else 3900.0
+    drive = 4.5 if brightness > 1800 else 6.0
+    return Pedalboard([HighpassFilter(cutoff_frequency_hz=highpass), LowpassFilter(cutoff_frequency_hz=lowpass), Distortion(drive_db=drive), Reverb(room_size=0.28, wet_level=0.11, dry_level=0.96)])
 
 
 def apply_phonk_fx(input_vocal_path: str, output_vocal_path: str) -> str:
