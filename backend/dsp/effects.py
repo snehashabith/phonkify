@@ -13,6 +13,7 @@ def get_adaptive_pedalboard(vocal_path: str) -> Pedalboard:
     # information for words to remain understandable after the pitch drop.
     highpass = 70.0 if brightness < 1600 else 95.0
     lowpass = 4400.0 if brightness > 2400 else 3900.0
+    # Applied to the isolated vocal stem after its pitch drop, not to the drums.
     drive = 4.5 if brightness > 1800 else 6.0
     return Pedalboard([HighpassFilter(cutoff_frequency_hz=highpass), LowpassFilter(cutoff_frequency_hz=lowpass), Distortion(drive_db=drive), Reverb(room_size=0.28, wet_level=0.11, dry_level=0.96)])
 

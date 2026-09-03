@@ -29,7 +29,7 @@ def _retime_loop(loop: AudioSegment, target_bpm: float, source_bpm: float = 140.
     """Tempo-match a loop while retaining its sample rate for the final mix."""
     if not target_bpm or target_bpm <= 0:
         return loop
-    speed = max(0.55, min(1.35, target_bpm / source_bpm))
+    speed = max(0.40, min(1.20, target_bpm / source_bpm))
     altered_rate = int(loop.frame_rate * speed)
     return loop._spawn(loop.raw_data, overrides={"frame_rate": altered_rate}).set_frame_rate(loop.frame_rate)
 
@@ -80,6 +80,9 @@ def mix_track_with_drums(effected_vocal_path: str, base_dir: str, output_path: s
         drum = _retime_loop(drum, target_bpm) if drum else None
         melody = _retime_loop(melody, target_bpm) if melody else None
         cowbell = _retime_loop(cowbell, target_bpm) if cowbell else None
+    if drum:
+        # Smooth sharp kick/snare peaks before they are mixed under a vocal.
+        drum = effects.compress_dynamic_range(drum, threshold=-13, ratio=3.0, attack=3, release=100) - 2.0
     # Do not pitch-shift kick/snare loops: they are not tonal instruments. Only
     # melodic material is transposed to the detected vocal pitch class.
     melody = _transpose_segment(melody, backing_semitones) if melody else None
@@ -95,7 +98,7 @@ def mix_track_with_drums(effected_vocal_path: str, base_dir: str, output_path: s
         if drum and not intro:
             # The beat stays forward even during lines; the vocal is no longer
             # normalized above the arrangement.
-            gain = rng.uniform(-6, -3) if active else rng.uniform(-3, -0.5)
+            gain = rng.uniform(-11, -8) if active else rng.uniform(-8, -5)
             mix = mix.overlay(_loop_slice(drum, rng.randrange(len(drum)), duration) + gain, position=start)
         if melody and not intro and (not active or rng.random() < 0.32):
             mix = mix.overlay(_loop_slice(melody, rng.randrange(len(melody)), duration) + rng.uniform(-17, -12), position=start)

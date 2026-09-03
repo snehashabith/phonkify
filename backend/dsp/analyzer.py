@@ -20,12 +20,14 @@ class AudioProfile:
 
 
 def calculate_adaptive_phonk_bpm(input_bpm: float) -> float:
-    """Choose a genre tempo without forcing every source to 140 BPM."""
-    if input_bpm < 90:
-        return float(np.clip(input_bpm * 1.35, 118, 130))
-    if input_bpm > 130:
-        return float(np.clip(input_bpm * 1.04, 142, 158))
-    return float(np.clip(input_bpm * 1.08, 132, 146))
+    """Choose a half-time drift tempo that follows the source's pace."""
+    # Slow sources must receive slow backing; fixed 140-BPM loops were the main
+    # reason mellow uploads sounded rushed. Faster songs still get faster beats.
+    if input_bpm < 85:
+        return float(np.clip(input_bpm * 0.90, 65, 82))
+    if input_bpm < 120:
+        return float(np.clip(input_bpm * 0.84, 78, 102))
+    return float(np.clip(input_bpm * 0.80, 100, 136))
 
 
 def analyze_vocal(vocal_path: str) -> AudioProfile:
@@ -65,7 +67,7 @@ def pitch_and_stretch(vocal_path: str, output_path: str, target_bpm: Optional[fl
     # librosa rates below 1 make the output longer/slower.  This is intentional:
     # the dark-drift preset applies a clearly audible half-time feel to every
     # input, including speech and acapellas.
-    rate = 0.78 if style == "dark_drift" else (
+    rate = float(np.clip(target / profile.bpm, 0.70, 0.90)) if style == "dark_drift" else (
         1.0 if profile.speech_like else float(np.clip(target / profile.bpm, 0.88, 1.14))
     )
     channels = [y] if y.ndim == 1 else y

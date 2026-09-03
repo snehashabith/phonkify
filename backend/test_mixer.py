@@ -28,10 +28,10 @@ def run_standalone_test():
   print("=" * 60)
   print("RUNNING STANDALONE MIXER TEST")
   print("=" * 60)
-  CUSTOM_AUDIO="we_are_ckirk.mp3"
+  CUSTOM_AUDIO="song_ip2.mp3"
   # 1. Define Paths
   test_vocal_path = os.path.join(TEMP_DIR, CUSTOM_AUDIO)
-  test_output_path = os.path.join(TEMP_DIR, "test_mixed_output.mp3")
+  test_output_path = os.path.join(TEMP_DIR, "test_m.mp3")
 
   # Required asset paths inside backend/assets/
   trap_path = os.path.join(ASSETS_DIR, "trap_drum_loop.wav")

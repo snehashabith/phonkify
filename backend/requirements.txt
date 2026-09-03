@@ -3,8 +3,13 @@ uvicorn==0.28.0
 python-multipart==0.0.9
 demucs==4.0.1
 torchaudio
+torchcodec
 librosa==0.10.1
 pedalboard==0.8.7
 pydub==0.25.1
 soundfile==0.12.1
 numpy<2.0.0
+scipy<1.13
+# Demucs 4 imports pkg_resources, removed from setuptools 81+.
+setuptools>=65,<81
+setuptools<81
