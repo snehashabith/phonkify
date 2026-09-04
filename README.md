@@ -62,10 +62,10 @@ cd ../frontend
 npm install
 
 ```
-# Hosted Link
+## Hosted Link
 https://phonkify-9tni4y1qe-snehashabiths-projects.vercel.app
 
-## Project Documentation
+### Project Documentation
 # Screenshots
 Input Section
 <img width="1882" height="612" alt="Screenshot 2026-09-04 055531" src="https://github.com/user-attachments/assets/9750f6e9-f20b-45f7-b29c-f0b836562907" />
@@ -73,7 +73,31 @@ Input Section
 Output listening and download section
 <img width="1901" height="645" alt="image" src="https://github.com/user-attachments/assets/701137f9-d487-4885-8cb3-78b9c7e8a09e" />
 
-# Demo Video
-"https://drive.google.com/file/d/1ZcGOWRUtpRFQcz5Yr_aof5AVniVL5htQ/view?usp=sharing"
+### Project Demo
+
+# Video
+
+https://drive.google.com/file/d/1ZcGOWRUtpRFQcz5Yr_aof5AVniVL5htQ/view?usp=sharing
+
+The demo video shows how an input mp3 file is dropped into the input deck, generate phonk is pressed 
+The input audio is stemmed and processed using demucs and pedalboard
+The output file is then made available for listening and it is then downloaded.
+
+
+## Team Contributions
+
+-Me: Everything
+
+
+
+---
+
+Made with ❤️ at TinkerHub Useless Projects 
+
+
+
+![Static Badge](https://img.shields.io/badge/TinkerHub-24?color=%23000000&link=https%3A%2F%2Fwww.tinkerhub.org%2F)
+
+![Static Badge](https://img.shields.io/badge/UselessProjects--26-26?link=https%3A%2F%2Ftinkerhub.org%2Fevents%2F1M8ORET9A1%2Fuseless-projects-3.0)
 
 
